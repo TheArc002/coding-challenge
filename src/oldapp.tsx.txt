@@ -1,0 +1,129 @@
+import React, { useState, useEffect, useCallback } from "react";
+import Button from 'react-bootstrap/Button';
+import Modal from 'react-bootstrap/Modal';
+import ListGroup from 'react-bootstrap/ListGroup';
+import axios from "axios";
+import 'bootstrap/dist/css/bootstrap.min.css';
+import "./App.css";
+
+function App() {
+  const [pokemons, setPokemons] = useState<any[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedPokemon, setSelectedPokemon] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const limit = 20;
+
+  const getPokemons = useCallback(async () => {
+    setIsLoading(true);
+    const response = await axios.get(
+      `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`
+    );
+    const data = response.data.results;
+    const pokemonsWithImage = await Promise.all(
+      data.map(async (pokemon: any) => {
+        const response = await axios.get(pokemon.url);
+        const data = response.data;
+        return {
+          name: data.name,
+          image: data.sprites.front_default,
+          height: data.height,
+          weight: data.weight,
+          types: data.types.map((type: any) => type.type.name),
+        };
+      })
+    );
+    setPokemons((prevPokemons) => [...prevPokemons, ...pokemonsWithImage]);
+    setIsLoading(false);
+  }, [offset]);
+
+  useEffect(() => {
+    getPokemons();
+  }, [getPokemons]);
+
+  const handleScroll = useCallback(() => {
+    const scrollTop =
+      document.documentElement.scrollTop || document.body.scrollTop;
+    const scrollHeight =
+      document.documentElement.scrollHeight || document.body.scrollHeight;
+    const clientHeight =
+      document.documentElement.clientHeight || window.innerHeight;
+    const scrolledToBottom = scrollTop + clientHeight >= scrollHeight;
+    if (scrolledToBottom && !isLoading) {
+      setOffset((prevOffset) => prevOffset + limit);
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [handleScroll]);
+
+  const handlePokemonClick = (pokemon: any) => {
+    setSelectedPokemon(pokemon);
+    handleShowModal();
+  };
+
+  const handleCloseModal = () => {
+    setSelectedPokemon(null);
+  };
+
+  const handleShowModal = () => {
+    setShowModal(true);
+  };
+
+  return (
+    <div className="App">
+      <h1>Pokemons</h1>
+      <ListGroup>
+        {pokemons.map((pokemon, index) => (
+          <ListGroup.Item className=' align-items-center' onClick={() => handlePokemonClick(pokemon)} key={index} >
+          <div className='align-items-center'>
+            <img
+              src={pokemon.image}
+              alt={pokemon.name}
+              style={{ width: '45px', height: '45px' }}
+              className='rounded-circle'
+            />
+            <div className='ms-3'>
+              <p className='fw-bold mb-1'>{pokemon.name}</p>
+            </div>
+          </div>
+        </ListGroup.Item>
+          /*<div
+            key={index}
+            className="card"
+            onClick={() => handlePokemonClick(pokemon)}
+          >
+            <img src={pokemon.image} alt={pokemon.name} />
+            <p>{pokemon.name}</p>
+          </div>*/
+        ))}
+      </ListGroup>
+      {isLoading && <p>Loading...</p>}
+      {selectedPokemon && (
+        <Modal  show={showModal} onHide={handleCloseModal} aria-labelledby="contained-modal-title-vcenter" size="sm">
+        <Modal.Dialog>
+          <Modal.Header>
+            <Modal.Title>Pokemon Details</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+          <img src={selectedPokemon.image} alt={selectedPokemon.name} />
+              <p>Height: {selectedPokemon.height}</p>
+              <p>Weight: {selectedPokemon.weight}</p>
+              <p>Types: {selectedPokemon.types.join(", ")}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={handleCloseModal}>Close</Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+export default App;
